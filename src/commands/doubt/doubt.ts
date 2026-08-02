@@ -149,6 +149,7 @@ export default (bot: Eris.Client): Command =>
           .map((id) => bot.guilds.get(guildID)?.roles.get(id)?.name)
           .filter((name) => name)
           .join(" ");
+        const roleMentions = roleIDs.map((id) => `<@&${id}>`).join(" ");
         const doubtId = await databaseManager.generateDoubtID();
 
         let rawTitle = `${commandInteraction.member?.user.username} asks:`;
@@ -191,9 +192,8 @@ export default (bot: Eris.Client): Command =>
         }
 
         const title = cleanTitle(rawTitle);
-        //<@${commandInteraction.member?.user.id}> ${roleNames} | This message will be sent in <#${channelID}>
-        const message = await bot.createMessage(commandInteraction.channel.id, {
-          content: `||${roleNames}|| | <@${commandInteraction.member?.user.id}> asks:`,
+        const message = await bot.createMessage(channelID, {
+          content: `||${roleMentions}|| | <@${commandInteraction.member?.user.id}> asks:`,
           embed: {
             description: [
               `╭ Grade ${gradeNum} • **${title}** • Doubt ID: \`${doubtId}\``,
@@ -278,7 +278,20 @@ export default (bot: Eris.Client): Command =>
         );
 
         await commandInteraction.createFollowup({
-          content: `Your doubt has been sent to <#${channelID}>! Check it out here`,
+          content: `✅ Your doubt has been successfully asked in <#${channelID}> with ID \`${doubtId}\`.`,
+          components: [
+            {
+              type: Eris.Constants.ComponentTypes.ACTION_ROW,
+              components: [
+                {
+                  type: Eris.Constants.ComponentTypes.BUTTON,
+                  style: Eris.Constants.ButtonStyles.LINK,
+                  label: "View your doubt",
+                  url: `https://discord.com/channels/${guildID}/${channelID}/${messageId}`,
+                },
+              ],
+            },
+          ],
         });
       } catch (error) {
         console.error("Error asking doubt:", error);
