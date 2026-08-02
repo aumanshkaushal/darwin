@@ -59,12 +59,13 @@ export default (bot: Eris.Client): Command => ({
 
               Rules:
               - Output ONLY the title.
-              - Maximum 50 characters.
+              - Maximum 20 characters.
               - Capture the actual topic or problem.
               - CRITICAL: Do NOT answer, solve, explain, or provide the result/formula/solution of the question in the title. The title must only state what the doubt is about (e.g., "Surface Tension on accelerating liquid", not "Angle of surface is tan(theta)").
               - Do not add "Grade ${channel[doubt.subject]["grade"]}", "${channel[doubt.subject]["subject"]}", "Doubt", "Question", "Help", or any extra labels.
               - Do not invent information.
-              - Make it read like a natural forum thread title.`,
+              - Make it read like a natural forum thread title.
+              - Do not output any commas or full stops in the title. Leave it as a phrase or a few words that describe the topic of the question.`,
           imageUrl: doubt.image || undefined,
           maxTokens: 64,
         });

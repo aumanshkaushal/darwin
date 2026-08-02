@@ -149,12 +149,13 @@ export default (bot: Eris.Client): Command =>
 
               Rules:
               - Output ONLY the title.
-              - Maximum 50 characters.
+              - Maximum 20 characters.
               - Capture the actual topic or problem.
               - CRITICAL: Do NOT answer, solve, explain, or provide the result/formula/solution of the question in the title. The title must only state what the doubt is about (e.g., "Surface Tension on accelerating liquid", not "Angle of surface is tan(theta)").
               - Do not add "Grade ${gradeNum}", "${subjectName}", "Doubt", "Question", "Help", or any extra labels.
               - Do not invent information.
-              - Make it read like a natural forum thread title.`,
+              - Make it read like a natural forum thread title.
+              - Do not output any commas or full stops in the title. Leave it as a phrase or a few words that describe the topic of the question.`,
             imageUrl: attachmentUrl,
             maxTokens: 64,
           });
@@ -166,15 +167,13 @@ export default (bot: Eris.Client): Command =>
         }
 
         const title = cleanTitle(rawTitle);
-
+        //<@${commandInteraction.member?.user.id}> ${roleNames} | This message will be sent in <#${channelID}>
         const message = await bot.createMessage(commandInteraction.channel.id, {
-          content: `<@${commandInteraction.member?.user.id}> ${roleNames} | This message will be sent in <#${channelID}>`,
+          content: `||${roleNames}|| | <@${commandInteraction.member?.user.id}> asks:`,
           embed: {
-            title: title,
             description: [
-              `> ${doubt}\n`,
-              `<:blue:${blue}> **Doubt asked by:** <@${commandInteraction.member?.user.id}>`,
-              `<:blue:${blue}> **Grade:** \`${gradeNum}\``,
+              `╭ Grade ${gradeNum} • **${title}** • Doubt ID: \`${doubtId}\``,
+              `> ${doubt}`,
             ].join("\n"),
             image: {
               url: attachmentUrl ? attachmentUrl : undefined,
