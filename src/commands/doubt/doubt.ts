@@ -47,6 +47,21 @@ export default (bot: Eris.Client): Command =>
       try {
         await commandInteraction.defer();
 
+        const userId = commandInteraction.member?.user.id || "";
+        const isOnCooldown = await databaseManager.checkCooldown(
+          userId,
+          6 * 60 * 60 * 1000,
+        );
+        if (isOnCooldown) {
+          const timeLeft = await databaseManager.userCooldownTime(userId);
+
+          await commandInteraction.createFollowup({
+            content: `❌ You are on cooldown! You can ask again in <t:${Math.floor((Date.now() + timeLeft) / 1000)}:R>.`,
+            flags: Eris.Constants.MessageFlags.EPHEMERAL,
+          });
+          return;
+        }
+
         const subjectOption = commandInteraction.data.options?.find(
           (opt) => opt.name === "subject",
         ) as Eris.InteractionDataOptionWithValue;

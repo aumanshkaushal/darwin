@@ -183,8 +183,29 @@ export async function checkCooldown(
   userId: string,
   cooldownMs: number,
 ): Promise<boolean> {
-  const timeSinceLast = await lastDoubtAsked(db, userId);
-  return timeSinceLast < cooldownMs;
+  const sixHoursAgo = Math.floor(Date.now() / 1000) - 6 * 60 * 60;
+  const { rows } = await db.query(
+    `SELECT COUNT(*) as count FROM doubts WHERE author = $1 AND status != 'deleted' AND created_at >= $2`,
+    [userId, sixHoursAgo],
+  );
+  const count = Number(rows[0].count) || 0;
+  return count >= 3;
+}
+
+export async function userCooldownTime(
+  db: Pool,
+  userId: string,
+): Promise<number> {
+  const { rows } = await db.query(
+    `SELECT created_at FROM doubts WHERE author = $1 AND status != 'deleted' ORDER BY created_at DESC LIMIT 3`,
+    [userId],
+  );
+  if (rows.length < 3) return 0;
+
+  const thirdLastDoubtTime = (rows[2].created_at as number) * 1000;
+  const cooldownEndTime = thirdLastDoubtTime + 6 * 60 * 60 * 1000;
+  const remainingCooldownTime = cooldownEndTime - Date.now();
+  return remainingCooldownTime > 0 ? remainingCooldownTime : 0;
 }
 
 export async function getUserDoubtCount(

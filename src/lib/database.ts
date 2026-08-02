@@ -363,6 +363,10 @@ export class DatabaseManager {
     return doubtMethods.checkCooldown(this.dbPool, userId, cooldownMs);
   }
 
+  userCooldownTime(userId: string) {
+    return doubtMethods.userCooldownTime(this.dbPool, userId);
+  }
+
   getUserDoubtCount(userId: string) {
     return doubtMethods.getUserDoubtCount(this.dbPool, userId);
   }
