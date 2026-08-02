@@ -64,6 +64,15 @@ export default (bot: Eris.Client): Command =>
           commandInteraction.member?.user.id || "",
         );
 
+        if (typeof doubt === "string" && doubt.match(/discord\.gg\/\w+/)) {
+          await commandInteraction.createFollowup({
+            content:
+              "❌ Doubts containing Discord invite links are not allowed.",
+            flags: Eris.Constants.MessageFlags.EPHEMERAL,
+          });
+          return;
+        }
+
         let attachmentUrl: string | undefined = undefined;
         let mimeType = "image/png";
         let base64Image;
