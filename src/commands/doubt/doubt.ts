@@ -313,7 +313,7 @@ export default (bot: Eris.Client): Command =>
   }) as any;
 
 const gradeSubjects: Record<string, string[]> = {
-  "9": [
+  grade9: [
     "Mathematics",
     "Science",
     "Social Science",
@@ -326,7 +326,7 @@ const gradeSubjects: Record<string, string[]> = {
     "Computer Science",
     "Additional",
   ],
-  "10": [
+  grade10: [
     "Mathematics",
     "Science",
     "Social Science",
@@ -444,6 +444,8 @@ async function getGrade(
   for (const [grade, roleId] of Object.entries(roles)) {
     if (member.roles.includes(roleId)) return grade;
   }
+  if (member.roles.includes(roles["jee"])) return "pcm11";
+  if (member.roles.includes(roles["neet"])) return "pcb11";
   return null;
 }
 
@@ -453,8 +455,8 @@ async function getSubjects(
 ): Promise<Eris.ApplicationCommandOptionChoice<unknown>[]> {
   const grade = await getGrade(bot, userID);
   if (!grade || !gradeSubjects[grade]) return [];
-
   const gradeNum = grade.match(/\d+/)?.[0] || "";
+
   return gradeSubjects[grade].map((subject) => ({
     name: `${subject} (${gradeNum}th)`,
     value: `${subject.toLowerCase().replace(/\s+/g, "")}_${gradeNum}`,
