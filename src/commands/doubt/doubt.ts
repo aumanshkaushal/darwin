@@ -56,7 +56,7 @@ export default (bot: Eris.Client): Command =>
           const timeLeft = await databaseManager.userCooldownTime(userId);
 
           await commandInteraction.createFollowup({
-            content: `❌ You are on cooldown! You can ask again in <t:${Math.floor((Date.now() + timeLeft) / 1000)}:R>.`,
+            content: `❌ You are on cooldown! You can ask again <t:${Math.floor((Date.now() + timeLeft) / 1000)}:R>.`,
             flags: Eris.Constants.MessageFlags.EPHEMERAL,
           });
           return;
