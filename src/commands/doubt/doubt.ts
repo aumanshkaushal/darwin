@@ -57,7 +57,6 @@ export default (bot: Eris.Client): Command =>
 
           await commandInteraction.createFollowup({
             content: `❌ You are on cooldown! You can ask again <t:${Math.floor((Date.now() + timeLeft) / 1000)}:R>.`,
-            flags: Eris.Constants.MessageFlags.EPHEMERAL,
           });
           return;
         }
@@ -88,47 +87,6 @@ export default (bot: Eris.Client): Command =>
           return;
         }
 
-        let attachmentUrl: string | undefined = undefined;
-        let mimeType = "image/png";
-        let base64Image;
-        if (attachmentOption && commandInteraction.data.resolved) {
-          const resolved: any = commandInteraction.data.resolved;
-          const discordUrl =
-            resolved.attachments?.[attachmentOption.value as string]?.url;
-
-          if (discordUrl) {
-            const response = await fetch(discordUrl);
-            if (!response.ok)
-              throw new Error(`Failed to fetch image: ${response.statusText}`);
-            const buffer = await Buffer.from(await response.arrayBuffer());
-            base64Image = buffer.toString("base64");
-            mimeType = response.headers.get("Content-Type") || "image/png";
-
-            const formData = new URLSearchParams();
-            formData.append("key", imgbbApiKey);
-            formData.append("image", base64Image);
-
-            const imgbbResponse = await fetch(
-              "https://api.imgbb.com/1/upload",
-              {
-                method: "POST",
-                body: formData,
-              },
-            );
-            const imgbbData = (await imgbbResponse.json()) as {
-              success: boolean;
-              data: { url: string };
-            };
-
-            if (imgbbData.success) {
-              attachmentUrl = imgbbData.data.url;
-            } else {
-              console.error("ImgBB upload failed:", imgbbData);
-              attachmentUrl = undefined;
-            }
-          }
-        }
-
         const channelID = channels[subject as string]["id"] as string;
         const channel = bot.guilds
           .get(guildID)
@@ -140,159 +98,312 @@ export default (bot: Eris.Client): Command =>
           });
           return;
         }
-        const subjectName = channels[subject as string]["subject"] as string;
-        const gradeNum = channels[subject as string]["grade"] as string;
 
-        const roleIDs = channels[subject as string]["helperrole"] as string[];
+        const confirmCustomId = `doubt_confirm_${commandInteraction.id}`;
+        const cancelCustomId = `doubt_cancel_${commandInteraction.id}`;
 
-        const roleNames = roleIDs
-          .map((id) => bot.guilds.get(guildID)?.roles.get(id)?.name)
-          .filter((name) => name)
-          .join(" ");
-        const roleMentions = roleIDs.map((id) => `<@&${id}>`).join(" ");
-        const doubtId = await databaseManager.generateDoubtID();
-
-        let rawTitle = `${commandInteraction.member?.user.username} asks:`;
-        try {
-          rawTitle = await generateNvidiaNim({
-            systemInstruction: `You generate concise, descriptive Discord forum titles.
-
-              Output exactly one title.
-              Do not include quotes, prefixes, suffixes, emojis, hashtags, or explanations.
-              Do not mention the grade, subject, stream, or words like "doubt", "question", "help", "PCM11", or "Comm12" unless they are part of the actual question.
-              Keep it under 50 characters.
-              Write the title as if it were the question's topic.
-              Do NOT answer, explain, or solve the student's question in the title. Only state the topic.`,
-            prompt: `Create a concise Discord forum title for this student's question.
-
-              Question:
-              ${doubt}
-
-              Context:
-              - Grade: ${gradeNum}
-              - Subject: ${subjectName}
-
-              Rules:
-              - Output ONLY the title.
-              - Maximum 20 characters.
-              - Capture the actual topic or problem.
-              - CRITICAL: Do NOT answer, solve, explain, or provide the result/formula/solution of the question in the title. The title must only state what the doubt is about (e.g., "Surface Tension on accelerating liquid", not "Angle of surface is tan(theta)").
-              - Do not add "Grade ${gradeNum}", "${subjectName}", "Doubt", "Question", "Help", or any extra labels.
-              - Do not invent information.
-              - Make it read like a natural forum thread title.
-              - Do not output any commas or full stops in the title. Leave it as a phrase or a few words that describe the topic of the question.`,
-            imageUrl: attachmentUrl,
-            maxTokens: 64,
-          });
-        } catch (aiError) {
-          console.error(
-            "AI Title generation failed, using generic title:",
-            aiError,
-          );
-        }
-
-        const title = cleanTitle(rawTitle);
-        const message = await bot.createMessage(channelID, {
-          content: `||${roleMentions}|| | <@${commandInteraction.member?.user.id}> asks:`,
-          embed: {
-            description: [
-              `╭ Grade ${gradeNum} • **${title}** • Doubt ID: \`${doubtId}\``,
-              `> ${doubt}`,
-            ].join("\n"),
-            image: {
-              url: attachmentUrl ? attachmentUrl : undefined,
-            },
-            color: 0xffffff,
-            footer: {
-              text: `${doubtId}`,
-            },
-          },
+        await commandInteraction.createFollowup({
+          content: `⚠️ **Are you certain you want to ping over 1000 others for your doubt?**\n*If found that the doubt is deemed to be unreasonable, you may be exempted or timed out accordingly.*`,
           components: [
             {
               type: Eris.Constants.ComponentTypes.ACTION_ROW,
               components: [
-                {
-                  type: Eris.Constants.ComponentTypes.BUTTON,
-                  style: Eris.Constants.ButtonStyles.DANGER,
-                  custom_id: "doubt_delete",
-                  emoji: {
-                    id: null,
-                    name: "🗑️",
-                  },
-                },
-                {
-                  type: Eris.Constants.ComponentTypes.BUTTON,
-                  style: Eris.Constants.ButtonStyles.PRIMARY,
-                  custom_id: "doubt_rotate_anticlockwise",
-                  emoji: {
-                    id: null,
-                    name: "↪️",
-                  },
-                  disabled: !attachmentUrl,
-                },
-                {
-                  type: Eris.Constants.ComponentTypes.BUTTON,
-                  style: Eris.Constants.ButtonStyles.SECONDARY,
-                  custom_id: "doubt_edit",
-                  emoji: {
-                    id: null,
-                    name: "✏️",
-                  },
-                },
-                {
-                  type: Eris.Constants.ComponentTypes.BUTTON,
-                  style: Eris.Constants.ButtonStyles.PRIMARY,
-                  custom_id: "doubt_rotate_clockwise",
-                  emoji: {
-                    id: null,
-                    name: "↩️",
-                  },
-                  disabled: !attachmentUrl,
-                },
                 {
                   type: Eris.Constants.ComponentTypes.BUTTON,
                   style: Eris.Constants.ButtonStyles.SUCCESS,
-                  custom_id: "doubt_ai",
+                  custom_id: confirmCustomId,
                   emoji: {
                     id: null,
-                    name: "🤖",
+                    name: "✅",
                   },
+                  label: "",
                 },
-              ],
-            },
-          ],
-        });
-
-        const messageId = message.id;
-        const channelId = message.channel.id;
-
-        await databaseManager.addDoubt(
-          doubtId,
-          commandInteraction.member?.user.id || "",
-          doubt as string,
-          messageId,
-          channelId,
-          subject as string,
-          grade as string,
-          attachmentUrl ? attachmentUrl : undefined,
-        );
-
-        await commandInteraction.createFollowup({
-          content: `✅ Your doubt has been successfully asked in <#${channelID}> with ID \`${doubtId}\`.`,
-          components: [
-            {
-              type: Eris.Constants.ComponentTypes.ACTION_ROW,
-              components: [
                 {
                   type: Eris.Constants.ComponentTypes.BUTTON,
-                  style: Eris.Constants.ButtonStyles.LINK,
-                  label: "View your doubt",
-                  url: `https://discord.com/channels/${guildID}/${channelID}/${messageId}`,
+                  style: Eris.Constants.ButtonStyles.DANGER,
+                  custom_id: cancelCustomId,
+                  emoji: {
+                    id: null,
+                    name: "✖️",
+                  },
+                  label: "",
                 },
               ],
             },
           ],
         });
+
+        let timeoutId: any;
+
+        const listener = async (inter: Eris.Interaction) => {
+          if (
+            inter.type === Eris.Constants.InteractionTypes.MESSAGE_COMPONENT &&
+            inter instanceof Eris.ComponentInteraction
+          ) {
+            if (
+              inter.data.custom_id === confirmCustomId ||
+              inter.data.custom_id === cancelCustomId
+            ) {
+              const interMemberId = inter.member?.id || inter.user?.id;
+              if (interMemberId !== userId) {
+                await inter.createMessage({
+                  content: "❌ Only the author of this command can confirm.",
+                  flags: Eris.Constants.MessageFlags.EPHEMERAL,
+                });
+                return;
+              }
+
+              await inter.deferUpdate();
+              bot.off("interactionCreate", listener);
+              clearTimeout(timeoutId);
+
+              if (inter.data.custom_id === confirmCustomId) {
+                await inter.editOriginalMessage({
+                  components: [],
+                });
+
+                try {
+                  let attachmentUrl: string | undefined = undefined;
+                  let mimeType = "image/png";
+                  let base64Image;
+                  if (attachmentOption && commandInteraction.data.resolved) {
+                    const resolved: any = commandInteraction.data.resolved;
+                    const discordUrl =
+                      resolved.attachments?.[attachmentOption.value as string]
+                        ?.url;
+
+                    if (discordUrl) {
+                      const response = await fetch(discordUrl);
+                      if (!response.ok)
+                        throw new Error(
+                          `Failed to fetch image: ${response.statusText}`,
+                        );
+                      const buffer = await Buffer.from(
+                        await response.arrayBuffer(),
+                      );
+                      base64Image = buffer.toString("base64");
+                      mimeType =
+                        response.headers.get("Content-Type") || "image/png";
+
+                      const formData = new URLSearchParams();
+                      formData.append("key", imgbbApiKey);
+                      formData.append("image", base64Image);
+
+                      const imgbbResponse = await fetch(
+                        "https://api.imgbb.com/1/upload",
+                        {
+                          method: "POST",
+                          body: formData,
+                        },
+                      );
+                      const imgbbData = (await imgbbResponse.json()) as {
+                        success: boolean;
+                        data: { url: string };
+                      };
+
+                      if (imgbbData.success) {
+                        attachmentUrl = imgbbData.data.url;
+                      } else {
+                        console.error("ImgBB upload failed:", imgbbData);
+                        attachmentUrl = undefined;
+                      }
+                    }
+                  }
+
+                  const subjectName = channels[subject as string][
+                    "subject"
+                  ] as string;
+                  const gradeNum = channels[subject as string][
+                    "grade"
+                  ] as string;
+
+                  const roleIDs = channels[subject as string][
+                    "helperrole"
+                  ] as string[];
+
+                  const roleNames = roleIDs
+                    .map((id) => bot.guilds.get(guildID)?.roles.get(id)?.name)
+                    .filter((name) => name)
+                    .join(" ");
+                  const roleMentions = roleIDs
+                    .map((id) => `<@&${id}>`)
+                    .join(" ");
+                  const doubtId = await databaseManager.generateDoubtID();
+
+                  let rawTitle = `${commandInteraction.member?.user.username} asks:`;
+                  try {
+                    rawTitle = await generateNvidiaNim({
+                      systemInstruction: `You generate concise, descriptive Discord forum titles.
+
+                        Output exactly one title.
+                        Do not include quotes, prefixes, suffixes, emojis, hashtags, or explanations.
+                        Do not mention the grade, subject, stream, or words like "doubt", "question", "help", "PCM11", or "Comm12" unless they are part of the actual question.
+                        Keep it under 50 characters.
+                        Write the title as if it were the question's topic.
+                        Do NOT answer, explain, or solve the student's question in the title. Only state the topic.`,
+                      prompt: `Create a concise Discord forum title for this student's question.
+
+                        Question:
+                        ${doubt}
+
+                        Context:
+                        - Grade: ${gradeNum}
+                        - Subject: ${subjectName}
+
+                        Rules:
+                        - Output ONLY the title.
+                        - Maximum 20 characters.
+                        - Capture the actual topic or problem.
+                        - CRITICAL: Do NOT answer, solve, explain, or provide the result/formula/solution of the question in the title. The title must only state what the doubt is about (e.g., "Surface Tension on accelerating liquid", not "Angle of surface is tan(theta)").
+                        - Do not add "Grade ${gradeNum}", "${subjectName}", "Doubt", "Question", "Help", or any extra labels.
+                        - Do not invent information.
+                        - Make it read like a natural forum thread title.
+                        - Do not output any commas or full stops in the title. Leave it as a phrase or a few words that describe the topic of the question.`,
+                      imageUrl: attachmentUrl,
+                      maxTokens: 64,
+                    });
+                  } catch (aiError) {
+                    console.error(
+                      "AI Title generation failed, using generic title:",
+                      aiError,
+                    );
+                  }
+
+                  const title = cleanTitle(rawTitle);
+                  const message = await bot.createMessage(channelID, {
+                    content: `||${roleMentions}|| | <@${commandInteraction.member?.user.id}> asks:`,
+                    embed: {
+                      description: [
+                        `╭ Grade ${gradeNum} • **${title}** • Doubt ID: \`${doubtId}\``,
+                        `> ${doubt}`,
+                      ].join("\n"),
+                      image: {
+                        url: attachmentUrl ? attachmentUrl : undefined,
+                      },
+                      color: 0xffffff,
+                      footer: {
+                        text: `${doubtId}`,
+                      },
+                    },
+                    components: [
+                      {
+                        type: Eris.Constants.ComponentTypes.ACTION_ROW,
+                        components: [
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.DANGER,
+                            custom_id: "doubt_delete",
+                            emoji: {
+                              id: null,
+                              name: "🗑️",
+                            },
+                          },
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.PRIMARY,
+                            custom_id: "doubt_rotate_anticlockwise",
+                            emoji: {
+                              id: null,
+                              name: "↪️",
+                            },
+                            disabled: !attachmentUrl,
+                          },
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.SECONDARY,
+                            custom_id: "doubt_edit",
+                            emoji: {
+                              id: null,
+                              name: "✏️",
+                            },
+                          },
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.PRIMARY,
+                            custom_id: "doubt_rotate_clockwise",
+                            emoji: {
+                              id: null,
+                              name: "↩️",
+                            },
+                            disabled: !attachmentUrl,
+                          },
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.SUCCESS,
+                            custom_id: "doubt_ai",
+                            emoji: {
+                              id: null,
+                              name: "🤖",
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  });
+
+                  const messageId = message.id;
+                  const channelId = message.channel.id;
+
+                  await databaseManager.addDoubt(
+                    doubtId,
+                    commandInteraction.member?.user.id || "",
+                    doubt as string,
+                    messageId,
+                    channelId,
+                    subject as string,
+                    grade as string,
+                    attachmentUrl ? attachmentUrl : undefined,
+                  );
+
+                  await inter.editOriginalMessage({
+                    content: `✅ Your doubt has been successfully asked in <#${channelID}> with ID \`${doubtId}\`.`,
+                    components: [
+                      {
+                        type: Eris.Constants.ComponentTypes.ACTION_ROW,
+                        components: [
+                          {
+                            type: Eris.Constants.ComponentTypes.BUTTON,
+                            style: Eris.Constants.ButtonStyles.LINK,
+                            label: "View your doubt",
+                            url: `https://discord.com/channels/${guildID}/${channelID}/${messageId}`,
+                          },
+                        ],
+                      },
+                    ],
+                  });
+                } catch (error) {
+                  console.error("Error asking doubt:", error);
+                  await inter.editOriginalMessage({
+                    content: "Failed to ask doubt. Try again later!",
+                    components: [],
+                  });
+                }
+              } else {
+                await inter.editOriginalMessage({
+                  content: "Your doubt request has been cancelled.",
+                  components: [],
+                });
+              }
+            }
+          }
+        };
+
+        bot.on("interactionCreate", listener);
+
+        timeoutId = setTimeout(
+          async () => {
+            bot.off("interactionCreate", listener);
+            try {
+              await commandInteraction.editOriginalMessage({
+                content: "❌ Doubt confirmation timed out.",
+                components: [],
+              });
+            } catch (e) {
+              // ignore
+            }
+          },
+          5 * 60 * 1000,
+        );
       } catch (error) {
         console.error("Error asking doubt:", error);
         try {
