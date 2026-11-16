@@ -552,11 +552,26 @@ async function getGrade(
   const member = await guild?.members.get(userID);
   if (!member) return null;
 
-  for (const [grade, roleId] of Object.entries(roles)) {
+  const allowedGrades = new Set([
+    "pcm11",
+    "pcb11",
+    "commerce11",
+    "humanities11",
+    "pcm12",
+    "pcb12",
+    "commerce12",
+    "humanities12",
+    "grade10",
+    "grade9",
+    "jee",
+    "neet",
+  ]);
+
+  for (const [grade, roleId] of Object.entries(roles).filter(([grade]) =>
+    allowedGrades.has(grade),
+  )) {
     if (member.roles.includes(roleId)) return grade;
   }
-  if (member.roles.includes(roles["jee"])) return "pcm11";
-  if (member.roles.includes(roles["neet"])) return "pcb11";
   return null;
 }
 
@@ -565,11 +580,17 @@ async function getSubjects(
   userID: string,
 ): Promise<Eris.ApplicationCommandOptionChoice<unknown>[]> {
   const grade = await getGrade(bot, userID);
-  if (!grade || !gradeSubjects[grade]) return [];
-  const gradeNum = grade.match(/\d+/)?.[0] || "";
+  if (!grade) return [];
 
-  return gradeSubjects[grade].map((subject) => ({
-    name: `${subject} (${gradeNum}th)`,
+  const subjectsGrade =
+    grade === "jee" ? "pcm11" : grade === "neet" ? "pcb11" : grade;
+  if (!gradeSubjects[subjectsGrade]) return [];
+  const gradeNum = subjectsGrade.match(/\d+/)?.[0] || "";
+  const gradeLabel =
+    grade === "jee" || grade === "neet" ? grade.toUpperCase() : `${gradeNum}th`;
+
+  return gradeSubjects[subjectsGrade].map((subject) => ({
+    name: `${subject} (${gradeLabel})`,
     value: `${subject.toLowerCase().replace(/\s+/g, "")}_${gradeNum}`,
   }));
 }
